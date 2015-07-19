@@ -8,7 +8,7 @@ Linux tool that:
  Written in python, html, css and javascript.  
 
 Setup
------
+=====
 - Install dstat via apt-get / yum
 - Setup password-less ssh to localhost (and any other machines in your measurement cluster)
 ```
@@ -25,14 +25,14 @@ $ ssh localhost
 ```
 
 Quickstart
-----------
+==========
 
 Simple example
-==============
+--------------
 This tool works best when you create your own measurement script that is called
 from the command line.  Here's a simple workload example script that first
 writes a file, pauses 2 seconds, then reads the file again:
-[here](https://github.com/jschaub30/workload_monitor/blob/master/dd_write_then_read.sh).
+- [dd_write_then_read.sh](https://github.com/jschaub30/workload_monitor/blob/master/dd_write_then_read.sh).
 
 After you create your command line script, create a configuration file
 that describes the measurement. Here's the configuration file for this example:
@@ -43,20 +43,20 @@ The workload is called and monitored by executing
 
 
 Example of sweeping a parameter
-===============================
+-------------------------------
 The example workload script can be called by passing the block size to be used
 for the file IO as the first parameter.
 
 Here's the configuration file:
  - [example_sweep.conf](https://github.com/jschaub30/workload_monitor/blob/master/example_sweep.conf)
 
- The workload is called and monitored by executing
- `$ ./workload_monitor.py example_sweep.conf`
+The workload is called and monitored by executing
+`$ ./workload_monitor.py example_sweep.conf`
 
 
- Example of monitoring multiple machines at once
- ===============================================
- Workloads that execute in a distributed environment can also be monitored.
+Example of monitoring multiple machines at once
+-----------------------------------------------
+Workloads that execute in a distributed environment can also be monitored.
 
 Here's the configuration file:
  - [example_cluster.conf](https://github.com/jschaub30/workload_monitor/blob/master/example_cluster.conf)
@@ -66,7 +66,7 @@ The workload is called and monitored by executing
 
 
 Dependencies
-------------
+============
 This tool uses:
 - [dstat](http://dag.wiee.rs/home-made/dstat/).  Install via apt-get/yum
 - [C3js](http://c3js.org/) for javascript charts (included).

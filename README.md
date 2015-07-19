@@ -5,7 +5,7 @@ Linux tool that:
  - records system data on one or more machines in a cluster, and
  - automatically generates an html page with interactive javascript charts.
 
- Written in python, html, css and javascript.  
+Written in python, html, css and javascript.  
 
 Setup
 =====
@@ -69,6 +69,7 @@ Dependencies
 ============
 This tool uses:
 - [dstat](http://dag.wiee.rs/home-made/dstat/).  Install via apt-get/yum
+- [docopt](https://github.com/docopt/docopt) for python command arguments (included)
 - [C3js](http://c3js.org/) for javascript charts (included).
 - [Dygraphs](http://dygraphs.com/) for javascript charts (included).
 - [jquery-csv](https://code.google.com/p/jquery-csv/) for csv parsing (included).

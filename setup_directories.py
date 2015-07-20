@@ -13,7 +13,7 @@ Usage:
 
 import os
 import sys
-import shutil.copytree
+import shutil
 from datetime import datetime
 from docopt import docopt
 

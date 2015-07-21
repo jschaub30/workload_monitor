@@ -5,16 +5,18 @@ Usage:
     workload_monitor.py CONFIG_FILENAME [-h | --help]
 '''
 import sys
+import os
 import re
 import socket
 from docopt import docopt
-import setup_directories
+import shutil
+from datetime import datetime
 
 
 def main(config_fn):
     ''''''
     config = read_config(config_fn)
-    run_directory = setup_directories.main(config.workload_name)
+    run_directory = setup_directories(config.workload_name)
     sys.stdout.write('Run directory created at %s\n' % run_directory)
     for parameter1 in config.parameter1_vals:
         run_id = create_run_id(config.parameter1_name, parameter1)
@@ -77,6 +79,36 @@ def read_config(config_filename):
     if not config.slaves:
         config.slaves = [socket.gethostname()]
     return config
+
+def setup_directories(workload):
+    '''
+    Create these directories:
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/data/raw   # All config and raw data files end up here
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/data/final # Final (parsed) CSV files
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/scripts    # Measurement and analysis scripts
+    And copy the html_source directory to:
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/html       # For interactive charts
+    '''
+    workload = workload.replace(' ', '_').upper()
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_directory = os.path.join('rundir', workload, timestamp)
+    for sub_directory in ['data/raw', 'data/final', 'scripts']:
+        full_path = os.path.join(run_directory, timestamp, sub_directory)
+        os.makedirs(full_path)
+
+    # Now copy html directory, if one exists
+    if os.path.exists('html_source'):
+        shutil.copytree('html_source',
+                        os.path.join(run_directory, timestamp, 'html'))
+
+    # Create 'latest' symbolic link
+    os.chdir(os.path.join('rundir', workload))
+    try:
+        os.unlink('latest')
+    except OSError:
+        pass
+    os.symlink(timestamp, 'latest')
+    return run_directory
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='1.0')

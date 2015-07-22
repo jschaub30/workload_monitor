@@ -15,40 +15,87 @@ from datetime import datetime
 
 def main(config_fn):
     ''''''
+    # TODO: Do I need to pass around config?
     config = read_config(config_fn)
-    run_directory = setup_directories(config.workload_name)
-    sys.stdout.write('Run directory created at %s\n' % run_directory)
+    print type(config.num_iterations)
+    setup_directories(config)
+    sys.stdout.write('Run directory created at %s\n' % config.run_directory)
     for parameter1 in config.parameter1_vals:
-        run_id = create_run_id(config.parameter1_name, parameter1)
-        #rc = execute_command(config.setup_command)
-        launch_monitors(config, run_id)
-    # run_workloads(config)
-    # stop_monitors
-    # tidy_results
+        for iteration in xrange(int(config.num_iterations)):
+            create_run_id(config, parameter1, iteration)
+            execute_local_command(config.setup_command)
+            start_monitors(config)
+            # Now run the workload
+            val = parameter1
+            if config.parameter1_factor:
+                try:
+                    val = float(parameter1) * int(config.parameter1_factor)
+                    val = str(val).rstrip('.0')
+                except ValueError:
+                    msg = 'Problem multiplying parameter (%s) by factor (%s)' % (
+                          parameter1, config.parameter1_factor)
+                    msg += '\nContinuing...\n'
+                    sys.stderr.write(msg)
+            command = '%s %s' % (config.workload_command, val)
+            execute_local_command(command)
+            stop_monitors(config)
+            # tidy_results
 
 #    return run_directory
-def create_run_id(name, value):
+def create_run_id(config, value, iteration):
+    name = config.parameter1_name
     clean_name = re.sub(r'\W', '', name.replace(' ', '_'))
     clean_name = re.sub('_+', '_', clean_name).strip('_')
-    return '%s=%s' % (clean_name, value)
+    run_id = '%s=%s.%d' % (clean_name, value, iteration)
+    if not config.run_ids:
+        config.run_ids = [run_id]
+    else:
+        config.run_ids.append(run_id)
+    return
 
-def execute_command(cmd):
+def execute_local_command(cmd):
+    '''Execute a command on the local machine'''
     if cmd:
-        pass
-    return -1
+        #rc = os.system(cmd)
+        print 'Now executing: ' + cmd
+        # assert rc==0
+    return
 def launch_dstat(host, delay, run_id):
+    '''Launch the dstat monitoring utility on host'''
     fn = '/tmp/workload_monitor/%s.%s.dstat.csv' % (run_id, host.split('.')[0])
     remote_command = 'mkdir -p /tmp/workload_monitor/; '
-    remote_command += 'dstat --time -v --net --output %s %d' % (fn, delay)
+    remote_command += 'dstat --time -v --net --output %s %s' % (fn, delay)
     print 'ssh %s "%s"' % (host, remote_command)
     # rc = os.system('ssh %s "%s"') % (host, remote_command)
     # assert rc==0
     return
-def launch_monitors(config, run_id):
+def start_monitors(config):
+    '''Launch all system monitors on all machines in the cluster'''
     for slave in config.slaves:
-        launch_dstat(slave, config.measurement_delay_sec, run_id)
+        launch_dstat(slave, config.measurement_delay_sec, config.run_ids[-1])
     return
 
+def kill_dstat(host):
+    '''Kill the dstat monitoring utility on host'''
+    remote_command = 'killall dstat'
+    print 'ssh %s "%s"' % (host, remote_command)
+    # rc = os.system('ssh %s "%s"') % (host, remote_command)
+    # assert rc==0
+    return
+def stop_monitors(config):
+    '''
+    Stop all system monitors on all machines in the cluster, then
+    copies output files from each slave to run directory
+    '''
+    for slave in config.slaves:
+        kill_dstat(slave)
+        command = 'scp %s:/tmp/workload_monitor/%s/* %s/data/raw/.' % (
+                   slave, config.run_directory, config.run_directory)
+        print 'Executing: ' + command
+        # rc = os.system('ssh %s "%s"') % (host, remote_command)
+        # assert rc==0
+
+    return
 
 class Config:
     def __init__(self):
@@ -58,38 +105,43 @@ class Config:
         self.setup_command = None
         self.parameter1_name = "Iteration"
         self.parameter1_vals = ['']
-        self.parameter1_factor = 1
-        self.num_iterations = 1
+        self.parameter1_factor = None
+        self.num_iterations = '1'
         self.slaves = None
         self.run_ids = None
-        self.measurement_delay_sec = 1
+        self.measurement_delay_sec = '1'
+        self.run_directory = None
+        self.run_ids = None
 
 def read_config(config_filename):
     with open(config_filename, 'r') as fid:
         lines = fid.readlines()
     config = Config()
     for line in lines:
-        line = line.strip()
+        line = line.strip().split('#')[0]
         if len(line)<3 or line[0] == '#':
             pass
         else:
             argument = line.split()[0]
             value = ' '.join(line.split()[1:]).strip('\'"')
-            setattr(config, argument, value)
+            if argument == 'parameter1_vals':
+                setattr(config, argument, [value])
+            else:
+                setattr(config, argument, value)
     if not config.slaves:
         config.slaves = [socket.gethostname()]
     return config
 
-def setup_directories(workload):
+def setup_directories(config):
     '''
     Create these directories:
-    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/data/raw   # All config and raw data files end up here
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/data/raw   # Raw data files
     ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/data/final # Final (parsed) CSV files
-    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/scripts    # Measurement and analysis scripts
+    ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/scripts    # Measurenment and analysis scripts
     And copy the html_source directory to:
     ./rundir/[WORKLOAD_NAME]/[TIMESTAMP]/html       # For interactive charts
     '''
-    workload = workload.replace(' ', '_').upper()
+    workload = config.workload_name.replace(' ', '_').upper()
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_directory = os.path.join('rundir', workload, timestamp)
     for sub_directory in ['data/raw', 'data/final', 'scripts']:
@@ -108,7 +160,8 @@ def setup_directories(workload):
     except OSError:
         pass
     os.symlink(timestamp, 'latest')
-    return run_directory
+    config.run_directory = run_directory
+    return
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='1.0')

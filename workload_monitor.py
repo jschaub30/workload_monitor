@@ -56,8 +56,8 @@ def create_run_id(config, value, iteration):
 def execute_local_command(cmd):
     '''Execute a command on the local machine'''
     if cmd:
-        #rc = os.system(cmd)
         print 'Now executing: ' + cmd
+        rc = os.system(cmd)
         # assert rc==0
     return
 def launch_dstat(host, delay, run_id):
@@ -66,8 +66,8 @@ def launch_dstat(host, delay, run_id):
     remote_command = 'mkdir -p /tmp/workload_monitor/; '
     remote_command += 'dstat --time -v --net --output %s %s' % (fn, delay)
     print 'ssh %s "%s"' % (host, remote_command)
-    # rc = os.system('ssh %s "%s"') % (host, remote_command)
-    # assert rc==0
+    rc = os.system('ssh %s "%s"') % (host, remote_command)
+    assert rc==0
     return
 def start_monitors(config):
     '''Launch all system monitors on all machines in the cluster'''
@@ -79,8 +79,8 @@ def kill_dstat(host):
     '''Kill the dstat monitoring utility on host'''
     remote_command = 'killall dstat'
     print 'ssh %s "%s"' % (host, remote_command)
-    # rc = os.system('ssh %s "%s"') % (host, remote_command)
-    # assert rc==0
+    rc = os.system('ssh %s "%s"') % (host, remote_command)
+    assert rc==0
     return
 def stop_monitors(config):
     '''
@@ -92,8 +92,8 @@ def stop_monitors(config):
         command = 'scp %s:/tmp/workload_monitor/%s/* %s/data/raw/.' % (
                    slave, config.run_directory, config.run_directory)
         print 'Executing: ' + command
-        # rc = os.system('ssh %s "%s"') % (host, remote_command)
-        # assert rc==0
+        rc = os.system('ssh %s "%s"') % (host, remote_command)
+        assert rc==0
 
     return
 

@@ -17,7 +17,6 @@ def main(config_fn):
     ''''''
     # TODO: Do I need to pass around config?
     config = read_config(config_fn)
-    print type(config.num_iterations)
     setup_directories(config)
     sys.stdout.write('Run directory created at %s\n' % config.run_directory)
     for parameter1 in config.parameter1_vals:
@@ -42,6 +41,8 @@ def main(config_fn):
             # tidy_results
 
 #    return run_directory
+
+
 def create_run_id(config, value, iteration):
     name = config.parameter1_name
     clean_name = re.sub(r'\W', '', name.replace(' ', '_'))
@@ -53,6 +54,7 @@ def create_run_id(config, value, iteration):
         config.run_ids.append(run_id)
     return
 
+
 def execute_local_command(cmd):
     '''Execute a command on the local machine'''
     if cmd:
@@ -60,6 +62,8 @@ def execute_local_command(cmd):
         rc = os.system(cmd)
         # assert rc==0
     return
+
+
 def launch_dstat(host, delay, run_id):
     '''Launch the dstat monitoring utility on host'''
     fn = '/tmp/workload_monitor/%s.%s.dstat.csv' % (run_id, host.split('.')[0])
@@ -69,11 +73,14 @@ def launch_dstat(host, delay, run_id):
     rc = os.system('ssh %s "%s"') % (host, remote_command)
     assert rc==0
     return
+
+
 def start_monitors(config):
     '''Launch all system monitors on all machines in the cluster'''
     for slave in config.slaves:
         launch_dstat(slave, config.measurement_delay_sec, config.run_ids[-1])
     return
+
 
 def kill_dstat(host):
     '''Kill the dstat monitoring utility on host'''
@@ -82,6 +89,8 @@ def kill_dstat(host):
     rc = os.system('ssh %s "%s"') % (host, remote_command)
     assert rc==0
     return
+
+
 def stop_monitors(config):
     '''
     Stop all system monitors on all machines in the cluster, then
@@ -90,14 +99,16 @@ def stop_monitors(config):
     for slave in config.slaves:
         kill_dstat(slave)
         command = 'scp %s:/tmp/workload_monitor/%s/* %s/data/raw/.' % (
-                   slave, config.run_directory, config.run_directory)
+            slave, config.run_directory, config.run_directory)
         print 'Executing: ' + command
         rc = os.system('ssh %s "%s"') % (host, remote_command)
         assert rc==0
 
     return
 
+
 class Config:
+
     def __init__(self):
         self.workload_name = None
         self.workload_description = None
@@ -113,13 +124,14 @@ class Config:
         self.run_directory = None
         self.run_ids = None
 
+
 def read_config(config_filename):
     with open(config_filename, 'r') as fid:
         lines = fid.readlines()
     config = Config()
     for line in lines:
         line = line.strip().split('#')[0]
-        if len(line)<3 or line[0] == '#':
+        if len(line) < 3 or line[0] == '#':
             pass
         else:
             argument = line.split()[0]
@@ -131,6 +143,7 @@ def read_config(config_filename):
     if not config.slaves:
         config.slaves = [socket.gethostname()]
     return config
+
 
 def setup_directories(config):
     '''
@@ -165,5 +178,5 @@ def setup_directories(config):
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='1.0')
-    #print(arguments)
+    # print(arguments)
     main(arguments['CONFIG_FILENAME'])

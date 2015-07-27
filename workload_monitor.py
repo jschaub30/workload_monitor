@@ -47,7 +47,10 @@ def create_run_id(config, value, iteration):
     name = config.parameter1_name
     clean_name = re.sub(r'\W', '', name.replace(' ', '_'))
     clean_name = re.sub('_+', '_', clean_name).strip('_')
-    run_id = '%s=%s.%d' % (clean_name, value, iteration)
+    if value:
+        run_id = '%s=%s.%d' % (clean_name, value, iteration)
+    else:
+        run_id = '%s=0.%d' % (clean_name, iteration)
     if not config.run_ids:
         config.run_ids = [run_id]
     else:
@@ -60,17 +63,19 @@ def execute_local_command(cmd):
     if cmd:
         print 'Now executing: ' + cmd
         rc = os.system(cmd)
-        # assert rc==0
+        assert rc==0
     return
 
 
-def launch_dstat(host, delay, run_id):
+def launch_dstat(host, config, run_id):
     '''Launch the dstat monitoring utility on host'''
-    fn = '/tmp/workload_monitor/%s.%s.dstat.csv' % (run_id, host.split('.')[0])
-    remote_command = 'mkdir -p /tmp/workload_monitor/; '
-    remote_command += 'dstat --time -v --net --output %s %s' % (fn, delay)
-    print 'ssh %s "%s"' % (host, remote_command)
-    rc = os.system('ssh %s "%s"') % (host, remote_command)
+    fn = '/tmp/workload_monitor/%s/%s.%s.dstat.csv' % (config.run_directory,
+          run_id, host.split('.')[0])
+    remote_command = 'mkdir -p /tmp/workload_monitor/%s; ' % (
+                      config.run_directory)
+    remote_command += 'dstat --time -v --net --output %s %s 1>/dev/null' % (
+                       fn, config.measurement_delay_sec)
+    rc = os.system('ssh %s %s&' % (host, remote_command))
     assert rc==0
     return
 
@@ -78,7 +83,7 @@ def launch_dstat(host, delay, run_id):
 def start_monitors(config):
     '''Launch all system monitors on all machines in the cluster'''
     for slave in config.slaves:
-        launch_dstat(slave, config.measurement_delay_sec, config.run_ids[-1])
+        launch_dstat(slave, config, config.run_ids[-1])
     return
 
 
@@ -86,7 +91,7 @@ def kill_dstat(host):
     '''Kill the dstat monitoring utility on host'''
     remote_command = 'killall dstat'
     print 'ssh %s "%s"' % (host, remote_command)
-    rc = os.system('ssh %s "%s"') % (host, remote_command)
+    rc = os.system('ssh %s "%s"' % (host, remote_command))
     assert rc==0
     return
 
@@ -101,7 +106,7 @@ def stop_monitors(config):
         command = 'scp %s:/tmp/workload_monitor/%s/* %s/data/raw/.' % (
             slave, config.run_directory, config.run_directory)
         print 'Executing: ' + command
-        rc = os.system('ssh %s "%s"') % (host, remote_command)
+        rc = os.system(command)
         assert rc==0
 
     return
@@ -114,7 +119,7 @@ class Config:
         self.workload_description = None
         self.workload_command = None
         self.setup_command = None
-        self.parameter1_name = "Iteration"
+        self.parameter1_name = "Parameter"
         self.parameter1_vals = ['']
         self.parameter1_factor = None
         self.num_iterations = '1'
@@ -158,7 +163,7 @@ def setup_directories(config):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_directory = os.path.join('rundir', workload, timestamp)
     for sub_directory in ['data/raw', 'data/final', 'scripts']:
-        full_path = os.path.join(run_directory, timestamp, sub_directory)
+        full_path = os.path.join(run_directory, sub_directory)
         os.makedirs(full_path)
 
     # Now copy html directory, if one exists
@@ -167,6 +172,7 @@ def setup_directories(config):
                         os.path.join(run_directory, timestamp, 'html'))
 
     # Create 'latest' symbolic link
+    cwd = os.getcwd()
     os.chdir(os.path.join('rundir', workload))
     try:
         os.unlink('latest')
@@ -174,6 +180,7 @@ def setup_directories(config):
         pass
     os.symlink(timestamp, 'latest')
     config.run_directory = run_directory
+    os.chdir(cwd)
     return
 
 if __name__ == '__main__':
